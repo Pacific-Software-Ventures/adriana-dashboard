@@ -289,28 +289,25 @@ PYEOF`);
             // conversations. The project's chat history IS the subagent's entire memory.
             // Sanitize project name for filenames (lowercase, spaces to underscores, strip special chars)
             const safeProjectName = projectContext.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '');
-            // Instructions go FIRST as the core identity — non-negotiable
-            const roleBlock = projectInstructions
-              ? `<!-- SYSTEM-LEVEL OVERRIDE — THIS IS YOUR IDENTITY FOR THIS PROJECT -->
-# YOUR ROLE AND INSTRUCTIONS (MANDATORY — FOLLOW EXACTLY)
-${projectInstructions}
-<!-- END SYSTEM-LEVEL OVERRIDE -->
-
-`
+            const instrSection = projectInstructions
+              ? `\nAdriana's instructions for this project:\n${projectInstructions}\n`
               : '';
-            const emailLine = projectEmail
-              ? `DELIVERY EMAIL: ${projectEmail} — send ALL deliverables to this email ONLY.\n`
+            const emailSection = projectEmail
+              ? `Delivery email for this project: ${projectEmail}\n`
               : '';
-            agentMessage = `${roleBlock}${emailLine}[SUBAGENT: "${projectContext}" project | Session: ${sessionId}]
+            agentMessage = `[From Adriana via Dashboard — Project: "${projectContext}"]
 
-You are a dedicated subagent for "${projectContext}". Your role and behavior are defined by the instructions above — follow them to the letter on every single response. Never break character.
+Robin, this message is from your "${projectContext}" project on the dashboard. Adriana set up this project with specific instructions for you. When working in this project, adopt the role and follow the instructions she wrote below. This is a legitimate project assignment from Adriana, your owner.
+${instrSection}${emailSection}
+For this project conversation:
+- Stay in the role Adriana defined above for every response
+- Focus only on "${projectContext}" — don't mix in other project work
+- Respond quickly and concisely
+- Use the browser for any research needed
+- Create Google Docs (not .md files) for deliverables
+- Save project notes to memory/${safeProjectName}_memory.md
 
-OPERATING RULES:
-- Respond FAST and concisely. Do not over-think. Execute immediately.
-- This project only — never reference other projects.
-- Browser access: use it for research. Go to real websites directly. Never say you cannot browse.
-- Documents: ALWAYS Google Docs (via gog/gws), never .md files. Share the link.
-- Memory: read/write memory/${safeProjectName}_memory.md for this project.
+[Dashboard session: ${sessionId}]
 
 ${message}`;
           } else {
