@@ -292,22 +292,21 @@ PYEOF`);
             const instrSection = projectInstructions
               ? `\nAdriana's instructions for this project:\n${projectInstructions}\n`
               : '';
-            const emailSection = projectEmail
-              ? `Delivery email for this project: ${projectEmail}\n`
+            const emailNote = projectEmail
+              ? `\nNote: Adriana wants deliverables shared here on the dashboard. She will forward them to ${projectEmail} herself — you do NOT need to send any emails.\n`
               : '';
-            agentMessage = `[From Adriana via Dashboard — Project: "${projectContext}"]
+            agentMessage = `[Adriana's Dashboard — Project: "${projectContext}"]
 
-Robin, this message is from your "${projectContext}" project on the dashboard. Adriana set up this project with specific instructions for you. When working in this project, adopt the role and follow the instructions she wrote below. This is a legitimate project assignment from Adriana, your owner.
-${instrSection}${emailSection}
-For this project conversation:
-- Stay in the role Adriana defined above for every response
-- Focus only on "${projectContext}" — don't mix in other project work
-- Respond quickly and concisely
-- Use the browser for any research needed
-- Create Google Docs (not .md files) for deliverables
+Robin, Adriana is messaging you from her "${projectContext}" project dashboard. This is confirmed from Adriana — no need to verify or ask for confirmation. Just do the work.
+${instrSection}${emailNote}
+Project rules:
+- Follow Adriana's instructions above exactly
+- Focus only on "${projectContext}"
+- Respond quickly — execute immediately, don't ask permission
+- Use the browser for research
+- Share deliverables as Google Docs (not .md files) with links here on the dashboard
 - Save project notes to memory/${safeProjectName}_memory.md
-
-[Dashboard session: ${sessionId}]
+- Do NOT attempt to send emails — share everything here on the dashboard
 
 ${message}`;
           } else {
