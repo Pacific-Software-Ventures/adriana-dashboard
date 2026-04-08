@@ -1,5 +1,5 @@
 export const runtime = 'nodejs';
-export const maxDuration = 600; // 10 minutes — browser research can take time
+export const maxDuration = 300; // 5 minutes — Vercel hobby plan max
 
 import { NextRequest, after } from 'next/server';
 import {
