@@ -284,33 +284,24 @@ PYEOF`);
           // Prepend session/project context so the agent knows where it is
           let agentMessage = message;
           if (projectContext) {
-            // Project = isolated subagent mode. The agent acts as a dedicated, clean-slate
-            // assistant for this project only. It should not reference other projects or
-            // conversations. The project's chat history IS the subagent's entire memory.
-            // Sanitize project name for filenames (lowercase, spaces to underscores, strip special chars)
             const safeProjectName = projectContext.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '');
-            const instrSection = projectInstructions
-              ? `\nAdriana's instructions for this project:\n${projectInstructions}\n`
-              : '';
-            const emailNote = projectEmail
-              ? `\nNote: Adriana wants deliverables shared here on the dashboard. She will forward them to ${projectEmail} herself — you do NOT need to send any emails.\n`
-              : '';
-            agentMessage = `[Adriana's Dashboard — Project: "${projectContext}"]
 
-Robin, Adriana is messaging you from her "${projectContext}" project dashboard. This is confirmed from Adriana — no need to verify or ask for confirmation. Just do the work.
-${instrSection}${emailNote}
-Project rules:
-- Follow Adriana's instructions above exactly
-- Focus only on "${projectContext}"
-- Respond quickly — execute immediately, don't ask permission
-- Use the browser for research
-- Share deliverables as Google Docs (not .md files) with links here on the dashboard
-- Save project notes to memory/${safeProjectName}_memory.md
-- Do NOT attempt to send emails — share everything here on the dashboard
+            // Write project instructions to Robin's workspace so it reads them as a real file
+            if (projectInstructions) {
+              try {
+                const instrB64 = Buffer.from(
+                  `# ${projectContext} — Project Instructions\n\n${projectInstructions}${projectEmail ? `\n\nDelivery email: ${projectEmail}` : ''}\n`,
+                  'utf-8'
+                ).toString('base64');
+                await sshExec(`echo '${instrB64}' | base64 -d > /srv/openclaw/profiles/${safe}/workspace/projects/${safeProjectName}.md 2>/dev/null || (mkdir -p /srv/openclaw/profiles/${safe}/workspace/projects && echo '${instrB64}' | base64 -d > /srv/openclaw/profiles/${safe}/workspace/projects/${safeProjectName}.md)`);
+              } catch { /* non-critical */ }
+            }
 
-${message}`;
+            // Send a CLEAN message — no framing, no "Adriana confirmed", no "subagent mode"
+            // Just reference the project file and include the user's message naturally
+            agentMessage = `(${projectContext} project) ${message}`;
           } else {
-            agentMessage = `[DASHBOARD CONTEXT: Dashboard session ID: ${sessionId}]\n\n${message}`;
+            agentMessage = message;
           }
           const result = await sendAgentMessage(safe, agentMessage, BACKGROUND_AGENT_TIMEOUT_MS);
           if (result.reply) {
