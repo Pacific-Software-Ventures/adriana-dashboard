@@ -301,16 +301,47 @@ for m in msgs[-10:]:
               recentContext = histOutput.trim();
             } catch { /* */ }
 
+            // Fetch content from any URLs in the message (Google Sheets, web pages, etc.)
+            let urlContent = '';
+            const urlRegex = /https?:\/\/[^\s)>\]]+/g;
+            const urls = message.match(urlRegex) || [];
+            for (const url of urls.slice(0, 3)) { // max 3 URLs
+              try {
+                let fetchUrl = url;
+                // Convert Google Sheets URL to CSV export
+                const sheetsMatch = url.match(/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+                if (sheetsMatch) {
+                  const gidMatch = url.match(/gid=(\d+)/);
+                  fetchUrl = `https://docs.google.com/spreadsheets/d/${sheetsMatch[1]}/export?format=csv${gidMatch ? `&gid=${gidMatch[1]}` : ''}`;
+                }
+                // Convert Google Docs URL to text export
+                const docsMatch = url.match(/docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/);
+                if (docsMatch) {
+                  fetchUrl = `https://docs.google.com/document/d/${docsMatch[1]}/export?format=txt`;
+                }
+                const urlRes = await fetch(fetchUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, redirect: 'follow' });
+                if (urlRes.ok) {
+                  const text = await urlRes.text();
+                  const trimmed = text.slice(0, 15000); // cap at 15k chars
+                  urlContent += `\n\n[Content from ${url}]:\n${trimmed}\n`;
+                  console.log(`[chat] Fetched ${trimmed.length} chars from ${url}`);
+                }
+              } catch (err) {
+                console.warn(`[chat] Failed to fetch ${url}:`, err);
+              }
+            }
+
             // Try OpenRouter first (Qwen), fall back to OpenAI
             const OR_KEY = process.env.OPENROUTER_API_KEY || '';
             const OPENAI_KEY = process.env.OPENAI_API_KEY || '';
+            const userMessage = urlContent ? `${message}\n${urlContent}` : message;
 
             let apiRes: Response;
             if (OR_KEY) {
               apiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${OR_KEY}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ model: 'qwen/qwen3-235b-a22b', messages: [{ role: 'system', content: systemPrompt }, ...(recentContext ? [{ role: 'user', content: `[Previous conversation context]\n${recentContext}` }, { role: 'assistant', content: 'I have the context. What would you like me to help with?' }] : []), { role: 'user', content: message }], max_tokens: 4096 }),
+                body: JSON.stringify({ model: 'qwen/qwen3-235b-a22b', messages: [{ role: 'system', content: systemPrompt }, ...(recentContext ? [{ role: 'user', content: `[Previous conversation context]\n${recentContext}` }, { role: 'assistant', content: 'I have the context. What would you like me to help with?' }] : []), { role: 'user', content: userMessage }], max_tokens: 4096 }),
               });
               // If OpenRouter fails, fall back to OpenAI
               if (!apiRes.ok && OPENAI_KEY) {
@@ -318,14 +349,14 @@ for m in msgs[-10:]:
                 apiRes = await fetch('https://api.openai.com/v1/chat/completions', {
                   method: 'POST',
                   headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ model: 'gpt-4o', messages: [{ role: 'system', content: systemPrompt }, ...(recentContext ? [{ role: 'user', content: `[Previous conversation context]\n${recentContext}` }, { role: 'assistant', content: 'I have the context. What would you like me to help with?' }] : []), { role: 'user', content: message }], max_tokens: 4096 }),
+                  body: JSON.stringify({ model: 'gpt-4o', messages: [{ role: 'system', content: systemPrompt }, ...(recentContext ? [{ role: 'user', content: `[Previous conversation context]\n${recentContext}` }, { role: 'assistant', content: 'I have the context. What would you like me to help with?' }] : []), { role: 'user', content: userMessage }], max_tokens: 4096 }),
                 });
               }
             } else {
               apiRes = await fetch('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ model: 'gpt-4o', messages: [{ role: 'system', content: systemPrompt }, ...(recentContext ? [{ role: 'user', content: `[Previous conversation context]\n${recentContext}` }, { role: 'assistant', content: 'I have the context. What would you like me to help with?' }] : []), { role: 'user', content: message }], max_tokens: 4096 }),
+                body: JSON.stringify({ model: 'gpt-4o', messages: [{ role: 'system', content: systemPrompt }, ...(recentContext ? [{ role: 'user', content: `[Previous conversation context]\n${recentContext}` }, { role: 'assistant', content: 'I have the context. What would you like me to help with?' }] : []), { role: 'user', content: userMessage }], max_tokens: 4096 }),
               });
             }
 
