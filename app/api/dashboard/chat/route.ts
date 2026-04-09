@@ -301,24 +301,33 @@ for m in msgs[-10:]:
               recentContext = histOutput.trim();
             } catch { /* */ }
 
-            // Call Qwen3-235B via OpenRouter (fast, cheap fallback for custom projects)
-            const OR_KEY = process.env.OPENROUTER_API_KEY || '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';
-            const apiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${OR_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                model: 'qwen/qwen3-235b-a22b',
-                messages: [
-                  { role: 'system', content: systemPrompt },
-                  ...(recentContext ? [{ role: 'user', content: `[Previous conversation context]\n${recentContext}` }, { role: 'assistant', content: 'I have the context. What would you like me to help with?' }] : []),
-                  { role: 'user', content: message },
-                ],
-                max_tokens: 4096,
-              }),
-            });
+            // Try OpenRouter first (Qwen), fall back to OpenAI
+            const OR_KEY = process.env.OPENROUTER_API_KEY || '';
+            const OPENAI_KEY = process.env.OPENAI_API_KEY || '';
+
+            let apiRes: Response;
+            if (OR_KEY) {
+              apiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${OR_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: 'qwen/qwen3-235b-a22b', messages: [{ role: 'system', content: systemPrompt }, ...(recentContext ? [{ role: 'user', content: `[Previous conversation context]\n${recentContext}` }, { role: 'assistant', content: 'I have the context. What would you like me to help with?' }] : []), { role: 'user', content: message }], max_tokens: 4096 }),
+              });
+              // If OpenRouter fails, fall back to OpenAI
+              if (!apiRes.ok && OPENAI_KEY) {
+                console.warn('[chat] OpenRouter failed, falling back to OpenAI:', await apiRes.text());
+                apiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+                  method: 'POST',
+                  headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ model: 'gpt-4o', messages: [{ role: 'system', content: systemPrompt }, ...(recentContext ? [{ role: 'user', content: `[Previous conversation context]\n${recentContext}` }, { role: 'assistant', content: 'I have the context. What would you like me to help with?' }] : []), { role: 'user', content: message }], max_tokens: 4096 }),
+                });
+              }
+            } else {
+              apiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: 'gpt-4o', messages: [{ role: 'system', content: systemPrompt }, ...(recentContext ? [{ role: 'user', content: `[Previous conversation context]\n${recentContext}` }, { role: 'assistant', content: 'I have the context. What would you like me to help with?' }] : []), { role: 'user', content: message }], max_tokens: 4096 }),
+              });
+            }
 
             if (apiRes.ok) {
               const data = await apiRes.json();
