@@ -301,16 +301,16 @@ for m in msgs[-10:]:
               recentContext = histOutput.trim();
             } catch { /* */ }
 
-            // Call GPT-4o via OpenAI API (fast, reliable)
-            const OPENAI_KEY = process.env.OPENAI_API_KEY || '';
-            const apiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+            // Call Qwen3-235B via OpenRouter (fast, cheap fallback for custom projects)
+            const OR_KEY = process.env.OPENROUTER_API_KEY || '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';
+            const apiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
               method: 'POST',
               headers: {
-                'Authorization': `Bearer ${OPENAI_KEY}`,
+                'Authorization': `Bearer ${OR_KEY}`,
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                model: 'gpt-4o',
+                model: 'qwen/qwen3-235b-a22b',
                 messages: [
                   { role: 'system', content: systemPrompt },
                   ...(recentContext ? [{ role: 'user', content: `[Previous conversation context]\n${recentContext}` }, { role: 'assistant', content: 'I have the context. What would you like me to help with?' }] : []),
